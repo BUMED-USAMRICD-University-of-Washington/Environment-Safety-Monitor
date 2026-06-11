@@ -1,3 +1,62 @@
+#include <avr/wdt.h>  // Include the AVR hardware watchdog library
+#include <iostream>
+#include "max31856.h"
+#include "oxygen_sensor.h"
+
+// ... keep your existing thresholds and constants ...
+
+int main() {
+    // 1. HARDWARE INITIALIZATION PHASE
+    initEdwardsInterface();
+    
+    // Configure and enable the watchdog timer with a 2-second timeout window
+    wdt_enable(WDTO_2S); 
+    std::cout << "[BOOT] Hardware Watchdog Timer Enabled (2s Timeout)." << std::endl;
+
+    if (!initMax31856()) {
+        // If boot fails, don't pet the dog. Let it reset the chip continuously 
+        // while holding the Edwards relay loop OPEN to flag an active system fault.
+        while (true) {
+            driveEdwardsInterface(SafetyStatus::SENSOR_FAULT); 
+        }
+    }
+
+    uint32_t lastSampleTime = 0;
+
+    // 2. THE RUNTIME LOOP
+    while (true) {
+        // KICK THE DOG: Regularly reset the hardware countdown timer at the top of every loop cycle.
+        // As long as the code line is reached before 2 seconds elapse, the system continues running.
+        wdt_reset(); 
+
+        uint32_t currentTime = 0; // Replace with your native millis() or get_time() call
+
+        // --- SECTION A: CRITICAL SAFETY EVALUATION (Every 100ms) ---
+        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
+            lastSampleTime = currentTime;
+
+            float rawO2 = 0.0f;
+            float rawTemp = 0.0f;
+
+            bool o2Healthy = readOxygenLevel(rawO2);
+            bool tempHealthy = readCryoTemperature(rawTemp);
+
+            SafetyStatus systemStatus = SafetyStatus::SAFE;
+            if (!o2Healthy || !tempHealthy) {
+                systemStatus = SafetyStatus::SENSOR_FAULT;
+            } else if (rawO2 <= O2_CRITICAL_THRESHOLD || rawTemp <= TEMP_CRITICAL_THRESHOLD) {
+                systemStatus = SafetyStatus::CRITICAL;
+            }
+
+            driveEdwardsInterface(systemStatus);
+        }
+        
+        // Note: Do NOT put wdt_reset() inside the 2000ms diagnostic loop. 
+        // If Section A crashes but Section B keeps running, you want the watchdog to trip!
+    }
+    return 0;
+}
+
 #include <iostream>
 #include <cstdint>
 
