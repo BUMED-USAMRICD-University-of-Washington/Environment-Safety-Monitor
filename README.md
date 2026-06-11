@@ -2,8 +2,6 @@
 
 An industrial, life-safety-critical environmental monitoring system designed for public corridors housing liquid nitrogen ($LN_2$) freezers. This system integrates real-time oxygen deficiency monitoring, cryogenic surface tracking, deterministic fault filtering, non-volatile crash telemetry logging, and a physical fail-safe bridge to building-wide automated emergency management frameworks.
 
-https://open.spotify.com/track/133L5cGDGW4puIjxY5GPTk?si=6ae4e31939aa4a06
-
 ---
 
 ## 🏢 System Safety Architecture
@@ -130,3 +128,8 @@ cmake --build .
 
 # 12. Run the compiled automated test suite to confirm algorithms match safety laws
 ./tests/run_unit_tests
+
+# 13. Pray for those who lost their lives to nitrogen leaks.
+
+
+https://open.spotify.com/track/133L5cGDGW4puIjxY5GPTk?si=6ae4e31939aa4a06
