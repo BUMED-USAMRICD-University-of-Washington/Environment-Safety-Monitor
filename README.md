@@ -74,34 +74,34 @@ pip install -r requirements.txt
 
 To discover, audit, or calibrate field hardware units deployed along facility corridors, utilize the following precise command sequences:
 
-# 1. View the main interactive global application help guide menu
+## 1. View the main interactive global application help guide menu
 python tools/doc_generator.py --help
 
-# 2. View specific usage documentation parameters for the threshold verification engine
+## 2. View specific usage documentation parameters for the threshold verification engine
 python tools/doc_generator.py verify-thresholds --help
 
-# 3. View arguments and configuration rules for compliance document generation
+## 3. View arguments and configuration rules for compliance document generation
 python tools/doc_generator.py generate-readme --help
 
-# 4. View connection rules for streaming serial registry data streams over USB links
+## 4. View connection rules for streaming serial registry data streams over USB links
 python tools/doc_generator.py read-telemetry --help
 
-# 5. Extract live thresholds directly from C++ files and output an audit matrix table
+## 5. Extract live thresholds directly from C++ files and output an audit matrix table
 python tools/doc_generator.py verify-thresholds --main-file src/main.cpp --o2-file include/oxygen_sensor.h
 
-# 6. Extract code variables and print a threshold table using standard default file maps
+## 6. Extract code variables and print a threshold table using standard default file maps
 python tools/doc_generator.py verify-thresholds
 
-# 7. Auto-compile a fresh, standardized markdown compliance report document file
+## 7. Auto-compile a fresh, standardized markdown compliance report document file
 python tools/doc_generator.py generate-readme --output-path README_COMPLIANCE.md
 
-# 8. Generate an audit report markdown ledger using default root destination file configurations
+## 8. Generate an audit report markdown ledger using default root destination file configurations
 python tools/doc_generator.py generate-readme
 
-# 9. Establish a physical serial connection to stream live telemetry from a specific hardware port
+## 9. Establish a physical serial connection to stream live telemetry from a specific hardware port
 python tools/doc_generator.py read-telemetry --port /dev/ttyUSB0 --baudrate 9600 --timeout 2.0
 
-# 10. Open a telemetry stream connection link utilizing standard platform default variables
+## 10. Open a telemetry stream connection link utilizing standard platform default variables
 python tools/doc_generator.py read-telemetry
 
 ## 📈 Compliance Matrix Rules For Facility Auditors
