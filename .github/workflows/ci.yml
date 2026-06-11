@@ -1,0 +1,34 @@
+name: C++ Safety Firmware CI
+
+# 1. Triggers: Run tests automatically on code pushes and pull requests to the main branch
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    # 2. Environment: Use the latest Ubuntu Linux runner
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Clone the repository into the runner's workspace
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # Step 2: Configure the CMake build environment
+    # This matches your local sandbox instructions, explicitly enabling the test suite
+    - name: Configure CMake
+      run: cmake -B build -DBUILD_TESTING=ON
+
+    # Step 3: Compile the C++ production code and test binaries
+    # The runner will enforce your -O2, -Werror, and -fno-exceptions flags here
+    - name: Build Firmware and Tests
+      run: cmake --build build
+
+    # Step 4: Execute the compiled Catch2 unit tests
+    # If the AlarmLatch fails transient noise or instant-spill checks, the CI pipeline halts and fails
+    - name: Run Catch2 Unit Tests
+      working-directory: build
+      run: ./tests/run_unit_tests
