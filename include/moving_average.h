@@ -1,6 +1,5 @@
 ifndef MOVING_AVERAGE_H
 define MOVING_AVERAGE_H
-
 include <cstddef>
 
 template <typename T, size_t WindowSize>
@@ -19,7 +18,6 @@ public:
 
         m_history[m_index] = newValue;
         m_sum += newValue;
-
         m_index = (m_index + 1) % WindowSize;
 
         return m_sum / static_cast<T>(m_count);
@@ -31,5 +29,4 @@ private:
     size_t m_count;         
     T m_sum;                
 };
-
 endif
