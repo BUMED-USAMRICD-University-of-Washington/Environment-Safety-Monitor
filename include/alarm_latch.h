@@ -1,3 +1,17 @@
+// Add these configuration values to your existing include files or configuration block
+
+// --- TEST INTERFACE CONFIGURATION ---
+constexpr uint8_t PIN_TEST_BUTTON       = 5;     // Physical momentary button connected to GPIO 5
+constexpr uint32_t TEST_DEBOUNCE_MS     = 50;    // Filter out mechanical contact bounce noise
+
+enum class SafetyStatus : uint8_t { 
+    SAFE, 
+    WARNING, 
+    CRITICAL, 
+    SENSOR_FAULT,
+    TEST_MODE          // New state to indicate a routine manual diagnostic check
+};
+
 // Add this public method to your existing class in include/alarm_latch.h
 
 /**
