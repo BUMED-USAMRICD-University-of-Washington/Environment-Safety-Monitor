@@ -1,3 +1,51 @@
+// Update your main monitoring block in src/main.cpp
+#include <iostream>
+#include "max31856.h"
+
+// Configuration timing for terminal output (Separate from fast safety sampling rate)
+constexpr uint32_t TELEMETRY_INTERVAL_MS = 2000; // Output to terminal every 2 seconds
+
+int main() {
+    // Standard system initializations...
+    if (!initMax31856()) { /* handle error */ }
+
+    uint32_t lastSampleTime = 0;
+    uint32_t lastTelemetryTime = 0;
+
+    while (true) {
+        uint32_t currentTime = 0; // Hook your physical hardware timer (e.g., millis()) here
+        
+        // --- FAST CRITICAL SAFETY LOOP ---
+        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
+            lastSampleTime = currentTime;
+            float currentProbeTemp = 0.0f;
+            readCryoTemperature(currentProbeTemp);
+            // Process critical thresholds...
+        }
+
+        // --- SLOWER DIAGNOSTIC TERMINAL LOOP ---
+        if (currentTime - lastTelemetryTime >= TELEMETRY_INTERVAL_MS) {
+            lastTelemetryTime = currentTime;
+
+            float localBoardTemp = 0.0f;
+            if (readColdJunctionTemperature(localBoardTemp)) {
+                // Display local heat pollution in the terminal
+                std::cout << "[DIAGNOSTIC] Board/Exhaust Temp: " 
+                          << localBoardTemp 
+                          << " °C" << std::endl;
+                          
+                // Safe operation envelope boundary check
+                if (localBoardTemp > 85.0f) {
+                    std::cout << "[WARNING] Hardware exceeding operating limits near freezer!" << std::endl;
+                }
+            } else {
+                std::cout << "[ERROR] Failed to read internal cold-junction sensor!" << std::endl;
+            }
+        }
+    }
+    return 0;
+}
+
 // Inside your main startup routine in src/main.cpp
 int main() {
     // Initialize IO pins and SPI bus...
