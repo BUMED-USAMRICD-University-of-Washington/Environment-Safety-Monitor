@@ -1,5 +1,51 @@
 #include <iostream>
 #include "max31856.h"
+#include "oxygen_sensor.h"
+#include "moving_average.h"
+
+constexpr float O2_CRITICAL_THRESHOLD = 19.5f; // OSHA Evacuation Threshold
+constexpr uint32_t SAMPLE_INTERVAL_MS = 100;
+
+// Filter C: Smooth oxygen readings over 15 samples to clear out transient fan electrical spikes
+MovingAverage<float, 15> o2Filter;
+
+int main() {
+    // Standard system boot configurations...
+    if (!initMax31856()) { /* handle critical boot halt */ }
+
+    uint32_t lastSampleTime = 0;
+
+    while (true) {
+        uint32_t currentTime = 0; // Replace with your hardware timer: e.g., millis()
+
+        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
+            lastSampleTime = currentTime;
+
+            float rawO2 = 0.0f;
+            bool o2LoopHealthy = readOxygenLevel(rawO2);
+
+            // Catch a broken wire or dead sensor immediately
+            if (!o2LoopHealthy) {
+                std::cout << "[CRITICAL FAULT] Oxygen loop broken or disconnected!" << std::endl;
+                // Force facility evacuation relay open immediately via triggerAlarms()
+                continue;
+            }
+
+            // Smooth the raw ADC signal through the moving average window
+            float smoothedO2 = o2Filter.filter(rawO2);
+
+            // Act on smoothed safety data
+            if (smoothedO2 <= O2_CRITICAL_THRESHOLD) {
+                std::cout << "[AIR HAZARD] Oxygen levels dangerously low: " << smoothedO2 << "%!" << std::endl;
+                // triggerAlarms(SafetyStatus::CRITICAL);
+            }
+        }
+    }
+    return 0;
+}
+
+#include <iostream>
+#include "max31856.h"
 #include "moving_average.h" // Include your new filter module!
 
 constexpr float TEMP_CRITICAL_THRESHOLD = 0.0f;  
