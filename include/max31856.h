@@ -1,5 +1,20 @@
 // Add these definitions to your existing include/max31856.h file
 
+// --- COLD-JUNCTION READ REGISTERS ---
+constexpr uint8_t MAX31856_REG_CJTH = 0x0A; // Cold-Junction Temp High Byte
+constexpr uint8_t MAX31856_REG_CJTL = 0x0B; // Cold-Junction Temp Low Byte
+
+// --- FUNCTION DECLARATION ---
+/**
+ * Reads the chip's internal ambient cold-junction temperature.
+ * Useful for monitoring local heat pollution from freezer exhausts.
+ * @param[out] cjTemperatureCelsius The parsed cold-junction temperature.
+ * @return bool True if read was successful; False on sensor communication fault.
+ */
+bool readColdJunctionTemperature(float& cjTemperatureCelsius);
+
+// Add these definitions to your existing include/max31856.h file
+
 // --- COLD-JUNCTION REGISTER MAP ---
 constexpr uint8_t MAX31856_REG_CJTO = 0x09; // Cold-Junction Temperature Offset Register
 
