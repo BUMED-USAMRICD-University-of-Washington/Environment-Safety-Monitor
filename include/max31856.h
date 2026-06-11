@@ -1,3 +1,17 @@
+// Add these definitions to your existing include/max31856.h file
+
+// --- COLD-JUNCTION REGISTER MAP ---
+constexpr uint8_t MAX31856_REG_CJTO = 0x09; // Cold-Junction Temperature Offset Register
+
+// --- FUNCTION DECLARATION ---
+/**
+ * Configures the cold-junction compensation offset.
+ * Used if the measurement board sits near hot compressor exhaust or localized heat sources.
+ * @param[in] offsetCelsius The desired offset correction in degrees Celsius (-8°C to +7.9375°C).
+ * @return bool True if the configuration was successfully written and verified.
+ */
+bool setColdJunctionOffset(float offsetCelsius);
+
 // Add these to your existing include/max31856.h file
 
 // --- MORE REGISTER MAPS ---
