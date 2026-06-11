@@ -1,3 +1,62 @@
+#include <iostream>
+#include "max31856.h"
+#include "moving_average.h" // Include your new filter module!
+
+constexpr float TEMP_CRITICAL_THRESHOLD = 0.0f;  
+constexpr uint32_t SAMPLE_INTERVAL_MS  = 100;   
+constexpr uint32_t TELEMETRY_INTERVAL_MS = 2000; 
+
+// Instantiate the moving average objects globally or at the top of main()
+// Filter A: Smooths floor cryogenic sensor over 10 samples (1 second of data at 100ms interval)
+MovingAverage<float, 10> floorTempFilter;
+
+// Filter B: Smooths local cold-junction exhaust sensor over 30 samples to stop terminal jitter
+MovingAverage<float, 30> exhaustTempFilter;
+
+int main() {
+    if (!initMax31856()) { /* Handle boot fault */ }
+
+    uint32_t lastSampleTime = 0;
+    uint32_t lastTelemetryTime = 0;
+
+    while (true) {
+        uint32_t currentTime = 0; // Replace with your hardware timer call (e.g., millis())
+
+        // --- FAST SAFETY LOOP (100ms) ---
+        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
+            lastSampleTime = currentTime;
+            
+            float rawCryoTemp = 0.0f;
+            if (readCryoTemperature(rawCryoTemp)) {
+                // Pass raw reading through the filter
+                float smoothedCryoTemp = floorTempFilter.filter(rawCryoTemp);
+
+                // Always use the smoothed data to evaluate alarms to eliminate false positives
+                if (smoothedCryoTemp <= TEMP_CRITICAL_THRESHOLD) {
+                    // Sound alarms! LN2 leak confirmed.
+                }
+            }
+        }
+
+        // --- DIAGNOSTIC TERMINAL LOOP (2000ms) ---
+        if (currentTime - lastTelemetryTime >= TELEMETRY_INTERVAL_MS) {
+            lastTelemetryTime = currentTime;
+
+            float rawBoardTemp = 0.0f;
+            if (readColdJunctionTemperature(rawBoardTemp)) {
+                // Pass raw board temperature through its independent filter
+                float smoothedBoardTemp = exhaustTempFilter.filter(rawBoardTemp);
+
+                // Print clean, jitter-free metrics to the console terminal
+                std::cout << "[TELEMETRY] Smoothed Board Temp: " 
+                          << smoothedBoardTemp << " °C (Raw: " 
+                          << rawBoardTemp << " °C)" << std::endl;
+            }
+        }
+    }
+    return 0;
+}
+
 // Update your main monitoring block in src/main.cpp
 #include <iostream>
 #include "max31856.h"
