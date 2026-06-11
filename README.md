@@ -126,10 +126,10 @@ mkdir build && cd build
 cmake -DBUILD_TESTING=ON ..
 cmake --build .
 
-# 12. Run the compiled automated test suite to confirm algorithms match safety laws
+## 12. Run the compiled automated test suite to confirm algorithms match safety laws
 ./tests/run_unit_tests
 
-# 13. Pray for those who lost their lives to nitrogen leaks.
+## 13. Pray for those who lost their lives to nitrogen leaks.
 
 
 https://open.spotify.com/track/133L5cGDGW4puIjxY5GPTk?si=6ae4e31939aa4a06
