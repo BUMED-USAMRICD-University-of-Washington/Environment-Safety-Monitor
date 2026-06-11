@@ -1,100 +1,3 @@
-// Add this implementation layer to your existing src/main.cpp file
-#include <iostream>
-#include <avr/wdt.h>
-#include "max31856.h"
-#include "oxygen_sensor.h"
-#include "moving_average.h"
-#include "alarm_latch.h"
-#include "buzzer_driver.h"
-#include "test_button.h"
-#include "led_driver.h" // Include your new visual indicator driver!
-
-// Instantiate the visual display engine
-LedDriver statusVisuals;
-
-int main() {
-    // 1. Initialise physical pin allocations
-    initEdwardsInterface();
-    localBuzzer.init();
-    inspectorButton.init();
-    statusVisuals.init(); // Configure your Green, Amber, and Red pins
-
-    // ... run your normal crash logging and MAX31856 configurations ...
-    wdt_enable(WDTO_2S);
-
-    uint32_t lastSampleTime = 0;
-
-    // THE MASTER ENVIRONMENT RUNTIME
-    while (true) {
-        wdt_reset(); // Keep watchdog count satisfied
-        
-        uint32_t currentTime = 0; // Replace with native millis() or get_time()
-
-        // --- SECTION A: SAFETY LOGIC WINDOW (Runs every 100ms) ---
-        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
-            lastSampleTime = currentTime;
-
-            float rawO2 = 0.0f;
-            float rawTemp = 0.0f;
-
-            bool o2Healthy = readOxygenLevel(rawO2);
-            bool tempHealthy = readCryoTemperature(rawTemp);
-
-            bool currentHardwareBroken = (!o2Healthy || !tempHealthy);
-            bool hardwareFaultAlarmActive = hardwareFaultDelay.update(currentHardwareBroken, currentTime);
-
-            bool currentO2Violation = (o2Healthy && (rawO2 <= O2_CRITICAL_THRESHOLD));
-            bool currentTempViolation = (tempHealthy && (rawTemp <= TEMP_CRITICAL_THRESHOLD));
-
-            bool o2AlarmActive = o2AlarmDelay.update(currentO2Violation, currentTime);
-            bool cryoAlarmActive = cryoAlarmDelay.update(currentTempViolation, currentTime);
-
-            SafetyStatus compiledStatus = SafetyStatus::SAFE;
-            uint8_t visualStatusCode = 0; // 0 = Safe, 1 = Warning, 2 = Critical, 3 = Fault
-
-            if (hardwareFaultAlarmActive) {
-                compiledStatus = SafetyStatus::SENSOR_FAULT;
-                visualStatusCode = 3;
-            } 
-            else if (o2AlarmActive || cryoAlarmActive) {
-                compiledStatus = SafetyStatus::CRITICAL;
-                visualStatusCode = 2;
-            } 
-            else if (inspectorButton.isPressed(currentTime)) {
-                compiledStatus = SafetyStatus::TEST_MODE;
-                visualStatusCode = 2; // Test mode mirrors critical flashing red indicators
-            }
-            else if (o2AlarmDelay.isCountingDown() || hardwareFaultDelay.isCountingDown()) {
-                // If a sensor is violating its threshold but has not latched into an alarm yet,
-                // keep the system compile status safe but upgrade visual metrics to warning status code 1.
-                compiledStatus = SafetyStatus::SAFE;
-                visualStatusCode = 1; 
-            }
-
-            // Route execution outputs to physical hardware layers
-            driveEdwardsInterface(compiledStatus);
-            
-            // Drive the LED array using the updated visual code metrics
-            statusVisuals.updateDisplay(visualStatusCode, currentTime);
-
-            // Audio management patterns
-            if (compiledStatus == SafetyStatus::TEST_MODE) {
-                localBuzzer.pulse(currentTime, 100); 
-            } 
-            else if (compiledStatus == SafetyStatus::CRITICAL || compiledStatus == SafetyStatus::SENSOR_FAULT) {
-                // e.g., digitalWrite(PIN_LOCAL_BUZZER, HIGH);
-            } 
-            else if (visualStatusCode == 1) { // Pre-alarm validation window
-                localBuzzer.pulse(currentTime, 150);
-            } 
-            else {
-                localBuzzer.turnOff();
-            }
-        }
-    }
-    return 0;
-}
-
 #include <iostream>
 #include <cstdint>
 #include <avr/wdt.h>  // AVR Hardware Watchdog Library
@@ -107,6 +10,7 @@ int main() {
 #include "buzzer_driver.h"
 #include "test_button.h"
 #include "crash_logger.h"
+#include "led_driver.h"
 
 // --- SYSTEM THRESHOLDS & TIMING PROFILE ---
 constexpr float O2_CRITICAL_THRESHOLD    = 19.5f;   // OSHA evacuation point (%)
@@ -127,6 +31,7 @@ AlarmLatch hardwareFaultDelay(1000);  // 1-second delay buffer for electrical dr
 
 BuzzerDriver localBuzzer;
 TestButton inspectorButton(PIN_TEST_BUTTON, TEST_DEBOUNCE_MS);
+LedDriver statusVisuals;
 
 // --- HARDWARE CONTROL LAYERS ---
 void initEdwardsInterface() {
@@ -151,6 +56,7 @@ int main() {
     initEdwardsInterface();
     localBuzzer.init();
     inspectorButton.init();
+    statusVisuals.init();
 
     // 2. ANALYZE AND LOG PERSISTENT HISTORICAL CRASH CODES
     ResetReason bootCondition = detectResetReason();
@@ -180,6 +86,15 @@ int main() {
 
     std::cout << "[RUNTIME ACTIVE] Beginning environment tracking loop..." << std::endl;
 
+    // Local allocations to store live telemetry globally across the iteration threads
+    float rawO2 = 0.0f;
+    float smoothedO2 = 0.0f;
+    float measuredVoltage = 0.0f;
+    float rawTemp = 0.0f;
+    float smoothedTemp = 0.0f;
+    float boardAmbientTemp = 0.0f;
+    SafetyStatus compiledStatus = SafetyStatus::SAFE;
+
     // 5. THE CRITICAL SAFETY ENVIRONMENT LOOP
     while (true) {
         // PET THE HARDWARE WATCHDOG: Continuously pet the watchdog at the top of every cycle.
@@ -193,12 +108,13 @@ int main() {
         if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
             lastSampleTime = currentTime;
 
-            float rawO2 = 0.0f;
-            float rawTemp = 0.0f;
-
-            // Gather direct hardware telemetry streams
-            bool o2Healthy = readOxygenLevel(rawO2);
+            // Gather direct hardware telemetry streams and track electrical loop voltage mappings
+            bool o2Healthy = readOxygenLevel(rawO2); 
             bool tempHealthy = readCryoTemperature(rawTemp);
+
+            // Access the underlying voltage read calculation from the oxygen sensor driver logic
+            // (Assumes a hook or global tracker is updated by readOxygenLevel)
+            measuredVoltage = (rawO2 / O2_PHYSICAL_MAX) * (LOOP_VOLTAGE_MAX - LOOP_VOLTAGE_MIN) + LOOP_VOLTAGE_MIN;
 
             // Step A1: Formulate physical hardware loop break checks
             bool currentHardwareBroken = (!o2Healthy || !tempHealthy);
@@ -209,46 +125,57 @@ int main() {
             bool currentTempViolation = (tempHealthy && (rawTemp <= TEMP_CRITICAL_THRESHOLD));
 
             // Run raw inputs through noise filtering and continuous confirmation limits
-            float smoothedO2 = o2Filter.filter(rawO2);
-            float smoothedTemp = floorTempFilter.filter(rawTemp);
+            smoothedO2 = o2Filter.filter(rawO2);
+            smoothedTemp = floorTempFilter.filter(rawTemp);
 
             bool o2AlarmActive = o2AlarmDelay.update(currentO2Violation, currentTime);
             bool cryoAlarmActive = cryoAlarmDelay.update(currentTempViolation, currentTime);
 
             // Step A3: Compile active status using strict Life Safety Priority Hierarchy
-            SafetyStatus compiledStatus = SafetyStatus::SAFE;
+            compiledStatus = SafetyStatus::SAFE;
+            uint8_t visualStatusCode = 0; // 0 = Safe, 1 = Warning, 2 = Critical, 3 = Fault
 
             if (hardwareFaultAlarmActive) {
                 compiledStatus = SafetyStatus::SENSOR_FAULT;
+                visualStatusCode = 3;
             } 
             else if (o2AlarmActive || cryoAlarmActive) {
                 compiledStatus = SafetyStatus::CRITICAL;
+                visualStatusCode = 2;
             } 
             else if (inspectorButton.isPressed(currentTime)) {
                 // Manual test functions only run if there is zero active physical danger
                 compiledStatus = SafetyStatus::TEST_MODE;
+                visualStatusCode = 2; // Test mode mirrors critical flashing red indicators
+            }
+            else if (o2AlarmDelay.isCountingDown() || hardwareFaultDelay.isCountingDown()) {
+                // Pre-alarm grace countdown running
+                compiledStatus = SafetyStatus::SAFE;
+                visualStatusCode = 1; 
             }
 
-            // Step A4: Execute Hardware Driver Array Responses
+            // Step A4: Route execution outputs to physical hardware layers
             if (compiledStatus == SafetyStatus::TEST_MODE) {
-                // USER TESTING ROUTINE ACTIVE
-                driveEdwardsInterface(SafetyStatus::CRITICAL); // Open relay to check FireWorks console
-                localBuzzer.pulse(currentTime, 100);          // Pulse buzzer very fast for feedback
+                driveEdwardsInterface(SafetyStatus::CRITICAL); // Open loop for panel verification
+            } else {
+                driveEdwardsInterface(compiledStatus);        // Process actual real-time status rules
+            }
+            
+            // Drive the LED array using the updated visual code metrics
+            statusVisuals.updateDisplay(visualStatusCode, currentTime);
+
+            // Audio management patterns
+            if (compiledStatus == SafetyStatus::TEST_MODE) {
+                localBuzzer.pulse(currentTime, 100); 
             } 
             else if (compiledStatus == SafetyStatus::CRITICAL || compiledStatus == SafetyStatus::SENSOR_FAULT) {
-                // EVACUATION OR SYSTEM THREAT ACTIVE
-                driveEdwardsInterface(compiledStatus);        // Break the facility circuit loops
                 // e.g., digitalWrite(PIN_LOCAL_BUZZER, HIGH); // Sound local warning horn constantly
             } 
-            else if (o2AlarmDelay.isCountingDown() || hardwareFaultDelay.isCountingDown()) {
-                // PRE-ALARM GRACE COUNTDOWN RUNNING
-                driveEdwardsInterface(SafetyStatus::SAFE);     // Keep the main building loop safe
-                localBuzzer.pulse(currentTime, 150);          // Alert local personnel to back away
+            else if (visualStatusCode == 1) { // Pre-alarm validation window
+                localBuzzer.pulse(currentTime, 150);
             } 
             else {
-                // STANDARD OBSERVATION MODE
-                driveEdwardsInterface(SafetyStatus::SAFE);     // Keep the relay secured
-                localBuzzer.turnOff();                        // Enforce local silence
+                localBuzzer.turnOff();
             }
         }
 
@@ -256,9 +183,16 @@ int main() {
         if (currentTime - lastTelemetryTime >= TELEMETRY_INTERVAL_MS) {
             lastTelemetryTime = currentTime;
 
-            float boardAmbientTemp = 0.0f;
             if (readColdJunctionTemperature(boardAmbientTemp)) {
+                // Broadcast standard string diagnostics out to the terminal log
                 std::cout << "[STATUS] Local Board/Exhaust Temp: " << boardAmbientTemp << " °C" << std::endl;
+                
+                // CRUCIAL: Stream structural CSV payload frame to synchronize with your interactive Typer tool
+                std::cout << "$TELEMETRY," 
+                          << rawO2 << "," << smoothedO2 << "," << measuredVoltage << ","
+                          << rawTemp << "," << smoothedTemp << "," << boardAmbientTemp << ","
+                          << (compiledStatus == SafetyStatus::SAFE ? 1 : 0) 
+                          << std::endl;
             }
         }
     }
