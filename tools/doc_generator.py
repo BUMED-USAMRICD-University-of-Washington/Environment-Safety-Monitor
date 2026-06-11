@@ -1,16 +1,23 @@
+#!/usr/bin/env python3
 import os
 import re
+import time
 from pathlib import Path
 import typer
+import serial  # Native pyserial hardware connection library
 from rich.console import Console
 from rich.table import Table
+from rich.live import Live  # Allows smooth, zero-flicker terminal updates
 
 # Initialize the Typer CLI app and Rich terminal layout console
-app = typer.Typer(help="Interactive Documentation and Compliance Tool for Environment-Safety-Monitor")
+app = typer.Typer(help="Interactive Documentation and Calibration Tool for Environment-Safety-Monitor")
 console = Console()
 
 def parse_cpp_constants(header_path: Path) -> dict:
-    """Parses a C++ header file to extract constexpr values using regular expressions."""
+    """
+    Parses a C++ header file to extract constexpr values using regular expressions.
+    Ensures absolute traceability by reading directly from the source code.
+    """
     constants = {}
     if not header_path.exists():
         return constants
@@ -23,7 +30,7 @@ def parse_cpp_constants(header_path: Path) -> dict:
             match = pattern.search(line)
             if match:
                 name, val = match.groups()
-                # Clean up comments or type casts from raw C++ string values
+                # Clean up trailing comments, whitespaces, or float literal type suffixes
                 val = val.split("//")[0].strip().replace("f", "")
                 constants[name] = val
     return constants
@@ -102,6 +109,77 @@ To achieve structural compliance with building alarm grids (e.g., **Edwards Fire
         f.write(markdown_content.strip())
         
     console.print(f"[bold green]✓ Success![/bold green] Generated structured markdown compliance log: [underline]{output_path}[/underline]")
+
+@app.command()
+def read_telemetry(
+    port: str = typer.Option("/dev/ttyUSB0", help="The serial port your microcontroller is plugged into (e.g., COM3 on Windows)"),
+    baudrate: int = typer.Option(9600, help="The data transfer rate matching your C++ Serial.begin() speed"),
+    timeout: float = typer.Option(2.0, help="The maximum seconds to wait for a data frame before throwing an error")
+):
+    """
+    Connects to the hardware over a physical USB Serial connection to pull live runtime telemetry.
+    """
+    console.print(f"[bold blue]Establishing connection to safety hardware on port {port}...[/bold blue]")
+    
+    try:
+        # Open the physical serial communication pipeline
+        with serial.Serial(port, baudrate, timeout=timeout) as ser:
+            console.print("[bold green]✓ Connected! Press Ctrl+C to disconnect and exit diagnostic mode.[/bold green]\n")
+            
+            # Clear any stale data remaining in the hardware buffer
+            ser.reset_input_buffer()
+            
+            # Initialize the Rich Live rendering environment for smooth terminal text updates
+            with Live(console=console, screen=False, refresh_per_second=4) as live:
+                while True:
+                    # Read an incoming line of text from the microcontroller
+                    raw_line = ser.readline().decode('utf-8', errors='ignore').strip()
+                    
+                    if not raw_line:
+                        continue
+                    
+                    # Expecting a standardized comma-separated data frame from the microcontroller:
+                    # Format: $TELEMETRY,rawO2,smoothedO2,o2Volts,rawTemp,smoothedTemp,boardTemp,relayState
+                    if raw_line.startswith("$TELEMETRY"):
+                        fields = raw_line.split(",")
+                        
+                        # Guard check against broken or fragmented serial frames
+                        if len(fields) < 9:
+                            continue
+                            
+                        # Parse out data indices mapping to your live C++ variables
+                        raw_o2        = fields[1]
+                        smoothed_o2   = fields[2]
+                        o2_volts      = fields[3]
+                        raw_temp      = fields[4]
+                        smoothed_temp = fields[5]
+                        board_temp    = fields[6]
+                        relay_raw     = int(fields[7])
+                        
+                        # Translate the raw integer relay flag into readable system compliance text
+                        relay_text = "[bold green]CLOSED (SAFE)[/bold green]" if relay_raw == 1 else "[bold red]OPEN (ALARM / TRIPPED)[/bold red]"
+                        
+                        # Generate a clean diagnostic dashboard matrix table
+                        table = Table(title="Live Hardware Telemetry Stream")
+                        table.add_column("Sensor Metric / System Register", style="cyan")
+                        table.add_column("Raw Value", style="magenta")
+                        table.add_column("Filtered / Smoothed", style="yellow")
+                        table.add_column("Electrical / State Metrics", style="green")
+                        
+                        table.add_row("Oxygen Level", f"{raw_o2} %", f"{smoothed_o2} %", f"{o2_volts} V (4-20mA loop)")
+                        table.add_row("Cryo Floor Array", f"{raw_temp} °C", f"{smoothed_temp} °C", "Type-T Thermocouple")
+                        table.add_row("MAX31856 Cold-Junction", f"{board_temp} °C", "N/A", "Freezer Exhaust Zone")
+                        table.add_row("Edwards FireWorks Relay", "N/A", "N/A", relay_text)
+                        
+                        # Push the table straight to the active console terminal frame
+                        live.update(table)
+                        
+                    time.sleep(0.05)  # Avoid pinning the host machine's CPU
+                    
+    except serial.SerialException as e:
+        console.print(f"\n[bold red]Hardware Connection Failure:[/bold red] Could not access port {port}. Check connections. Error details: {e}")
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]Diagnostic session closed by operator safely.[/bold yellow]")
 
 if __name__ == "__main__":
     app()
