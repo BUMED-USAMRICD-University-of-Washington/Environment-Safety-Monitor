@@ -5,6 +5,41 @@
 
 \begin{document}
 
+\section{Nomenclature}
+\label{sec:nomenclature}
+% Configure a tight, compact list layout to match single-column width constraints
+\begin{list}{}{\setlength{\leftmargin}{1.5cm}\setlength{\labelwidth}{1.2cm}\setlength{\itemsep}{2pt}}
+
+    \item[\boldmath$V_{\text{room}}$] 
+    Total fixed volume of the enclosed containment structure, in cubic meters ($\text{m}^3$).
+    
+    \item[\boldmath$O_{2,\text{baseline}}$] 
+    Nominal baseline concentration of atmospheric oxygen under normal ambient conditions ($21.0\%$).
+    
+    \item[\boldmath$O_{2,\text{measured}}$] 
+    Real-time oxygen concentration value computed by the sensor array, in percent ($\%$).
+    
+    \item[\boldmath$\Delta\Phi_{O_2}$] 
+    Dimensionless fractional coefficient representing the net volumetric displacement of oxygen.
+    
+    \item[\boldmath$V_{N_2,\text{released}}$] 
+    Calculated absolute volume of target asphyxiant (Nitrogen) gas introduced to the space, in cubic meters ($\text{m}^3$).
+    
+    \item[\boldmath$t_{\text{current}}$] 
+    Current systemic time value derived from the high-resolution hardware clock, in seconds ($\text{s}$).
+    
+    \item[\boldmath$t_{\text{last\_call}}$] 
+    Atomic timestamp indicating the exact moment of the most recent outbound telephony dispatch, in seconds ($\text{s}$).
+    
+    \item[\boldmath$T_{\text{cooldown}}$] 
+    Rigid structural lock out time duration enforced between sequential automated notification events, in seconds ($\text{s}$).
+    
+    \item[\boldmath$\text{Worker}_{\text{Active}}$] 
+    Boolean atomic variable monitoring the operational execution state of the asynchronous network thread thread.
+
+\end{list}
+
+
 % Pull the patch module into your book architecture cleanly
 \subfiles{src/emergency_subfile.tex}
 
