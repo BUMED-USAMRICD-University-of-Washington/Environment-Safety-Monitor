@@ -1,3 +1,30 @@
+// Inside your main startup routine in src/main.cpp
+int main() {
+    // Initialize IO pins and SPI bus...
+    
+    // Step A: Set to Type-T mode
+    if (!initMax31856()) {
+        // Handle boot fault...
+    }
+
+    // Step B: Calibrate for local heat pollution if deployed on a hot leg or exhaust zone
+    // Example: Offset local hardware error by -1.5°C
+    float siteSpecificOffset = -1.5f; 
+    
+    if (!setColdJunctionOffset(siteSpecificOffset)) {
+        // If the configuration write fails, trip safety loop out to BMS
+        while (true) {
+            triggerAlarms(SafetyStatus::SENSOR_FAULT);
+        }
+    }
+
+    // Begin infinite ambient monitoring loop safely...
+    while (true) {
+        // readCryoTemperature()...
+    }
+    return 0;
+}
+
 // Update your src/main.cpp file initialization routine
 int main() {
     // 1. Initialize your physical GPIO pins and SPI clock speeds first
