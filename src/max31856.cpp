@@ -1,6 +1,34 @@
 // Add this implementation to your src/max31856.cpp file
 #include "max31856.h"
 
+bool readColdJunctionTemperature(float& cjTemperatureCelsius) {
+    uint8_t rawHighByte = 0;
+    uint8_t rawLowByte = 0;
+
+    // 1. Read the two Cold-Junction registers sequentially
+    setChipSelect(PIN_SPI_CS, false);
+    spiTransferByte(MAX31856_REG_CJTH); // Address 0x0A (Read mode)
+    
+    rawHighByte = spiTransferByte(0xFF); // Clock out high byte
+    rawLowByte  = spiTransferByte(0xFF); // Clock out low byte
+    setChipSelect(PIN_SPI_CS, true);
+
+    // 2. Combine into a signed 16-bit integer
+    int16_t rawData = (static_cast<int16_t>(rawHighByte) << 8) | static_cast<int16_t>(rawLowByte);
+
+    // 3. Shift right by 4 to align the 12-bit signed number
+    // This removes the 4 trailing unused bits of the low register while maintaining the sign bit
+    rawData >>= 4;
+
+    // 4. Convert to Celsius using the chip's internal resolution (0.0625°C per LSB)
+    cjTemperatureCelsius = static_cast<float>(rawData) * 0.0625f;
+
+    return true; 
+}
+
+// Add this implementation to your src/max31856.cpp file
+#include "max31856.h"
+
 bool setColdJunctionOffset(float offsetCelsius) {
     // 1. Enforce physical hardware bounds check (-8.0°C to +7.9375°C)
     if (offsetCelsius < -8.0f) {
