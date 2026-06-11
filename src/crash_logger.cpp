@@ -1,45 +1,32 @@
-#include "crash_logger.h"
-#include <avr/eeprom.h>  // Include native microcontroller EEPROM drivers
-#include <avr/io.h>      // Include hardware register definitions
-#include <iostream>
+include "crash_logger.h"
+include <avr/eeprom.h>
+include <avr/io.h>
+include <iostream>
 
 ResetReason detectResetReason() {
-    // Read the MCU Status Register (MCUSR) which holds the hardware boot flags
     uint8_t mcuStatus = MCUSR;
-    
-    // Clear the register immediately so the next reset flag can be captured cleanly
     MCUSR = 0x00;
 
-    // Evaluate hardware flags using bitwise masking
-    if (mcuStatus & (1 << WDRF)) {
-        return ResetReason::WATCHDOG_TIMEOUT;
-    } else if (mcuStatus & (1 << BORF)) {
-        return ResetReason::BROWNOUT_RESET;
-    } else if (mcuStatus & (1 << EXTRF)) {
-        return ResetReason::EXTERNAL_RESET;
-    } else if (mcuStatus & (1 << PORF)) {
-        return ResetReason::POWER_ON_RESET;
-    }
+    if (mcuStatus & (1 << WDRF)) return ResetReason::WATCHDOG_TIMEOUT;
+    if (mcuStatus & (1 << BORF)) return ResetReason::BROWNOUT_RESET;
+    if (mcuStatus & (1 << EXTRF)) return ResetReason::EXTERNAL_RESET;
+    if (mcuStatus & (1 << PORF)) return ResetReason::POWER_ON_RESET;
     
     return ResetReason::UNKNOWN;
 }
 
 void logResetToEEPROM(ResetReason reason) {
-    // Always store the most recent reason directly to address 0x01
     eeprom_update_byte(reinterpret_cast<uint8_t*>(EEPROM_ADDR_LAST_REASON), static_cast<uint8_t>(reason));
 
-    // If it was a genuine watchdog crash, increment your persistent fault counter
-    if (reason == ResetReason::WATCHDOG_TIMEOUT) {
-        uint8_t currentCrashCount = eeprom_read_byte(reinterpret_cast<uint8_t*>(EEPROM_ADDR_CRASH_COUNT));
-        
-        // Prevent 8-bit integer overflow (max 255)
-        if (currentCrashCount < 255) {
-            currentCrashCount++;
-        }
-        
-        // eeprom_update_byte only writes if the value changed, preserving EEPROM cell lifespan
-        eeprom_update_byte(reinterpret_cast<uint8_t*>(EEPROM_ADDR_CRASH_COUNT), currentCrashCount);
+    if (reason != ResetReason::WATCHDOG_TIMEOUT) return;
+
+    uint8_t currentCrashCount = eeprom_read_byte(reinterpret_cast<uint8_t*>(EEPROM_ADDR_CRASH_COUNT));
+    
+    if (currentCrashCount < 255) {
+        currentCrashCount++;
     }
+    
+    eeprom_update_byte(reinterpret_cast<uint8_t*>(EEPROM_ADDR_CRASH_COUNT), currentCrashCount);
 }
 
 void printCrashHistory() {
