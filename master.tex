@@ -5,6 +5,71 @@
 
 \begin{document}
 
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
+
+% Add this block inside your main text section body
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}{\linewidth}
+    \centering
+    \begin{tikzpicture}[
+        node distance = 1.2cm and 1.5cm,
+        box/.style = {rectangle, draw, fill=blue!5, text width=4.0cm, align=center, minimum height=0.8cm, rounded corners=2pt, font=\small},
+        qbox/.style = {rectangle, draw, fill=green!5, text width=2.8cm, align=center, minimum height=1.0cm, font=\small\bfseries},
+        wbox/.style = {rectangle, draw, fill=orange!5, text width=3.8cm, align=center, minimum height=0.8cm, rounded corners=2pt, font=\small},
+        arrow/.style = {-{Stealth[scale=1.2]}, thick},
+        darrow/.style = {-{Stealth[scale=1.2]}, thick, dashed, draw=red!80}
+    ]
+
+        % --- BOUNDING BOXES FOR CORES ---
+        \draw[dashed, fill=gray!2] (-0.5, 0.5) rectangle (4.5, -4.8);
+        \node[font=\footnotesize\bfseries, anchor=north west] at (-0.4, 0.4) {CORE 0 (Deterministic Safety Loop)};
+
+        \draw[dashed, fill=gray!2] (10.5, 0.5) rectangle (15.5, -4.8);
+        \node[font=\footnotesize\bfseries, anchor=north east] at (15.4, 0.4) {CORE 1 (Utility \& Dispatch Engine)};
+
+        % --- CORE 0 NODES ---
+        \node (c0_start) [box] at (2, -0.2) {Iterate 100\,ms Execution Loop};
+        \node (c0_read)  [box, below=of c0_start] {Fetch Raw 16-Bit I2C ADC Metrics};
+        \node (c0_math)  [box, below=of c0_read] {Calculate $O_2\%$ and $N_2$ Displacement};
+        \node (c0_push)  [box, below=of c0_math] {Push Telemetry Packet to Ring Buffer};
+
+        % --- SHARED QUEUE NODE ---
+        \node (queue) [qbox] at (7.5, -3.8) {LOCK-FREE SPSC\\RING BUFFER\\(64 Slots)};
+
+        % --- CORE 1 NODES ---
+        \node (c1_pop)   [box, fill=orange!5] at (13, -3.8) {Pop Chronological Telemetry Packet};
+        \node (c1_check) [box, fill=orange!5, above=of c1_pop] {Evaluate \texttt{requires\_network\_dispatch}};
+        \node (c1_latch) [box, fill=orange!5, above=of c1_check] {Verify Cooling Timer: \\ $(t_{\text{current}} - t_{\text{last}}) \ge T_{\text{cooldown}}$};
+        
+        % --- BACKGROUND THREAD WORKER ---
+        \node (worker)   [wbox, right=of c1_latch, xshift=2.5cm, fill=red!5, draw=red] {Asynchronous Network Worker\\(Detached Outbound Call Task)};
+
+        % --- FLOW LINES CORES ---
+        \draw [arrow] (c0_start) -- (c0_read);
+        \draw [arrow] (c0_read) -- (c0_math);
+        \draw [arrow] (c0_math) -- (c0_push);
+        \draw [arrow] (c0_push.west) -- ++(-0.4,0) |- (c0_start.west);
+
+        \draw [arrow] (c1_pop) -- (c1_check);
+        \draw [arrow] (c1_check) -- (c1_latch);
+        \draw [arrow] (c1_latch.east) -- ++(0.4,0) |- (c1_pop.east);
+
+        % --- INTER-CORE PIPELINE TRACKS ---
+        \draw [arrow, draw=blue, line width=1.2pt] (c0_push.east) -- (queue.west);
+        \draw [arrow, draw=blue, line width=1.2pt] (queue.east) -- (c1_pop.west);
+        
+        % --- WORKER SPAWN INTERFACE ---
+        \draw [darrow] (c1_latch.east) -- node[above, font=\footnotesize, text=black] {Spawn \& Detach} (worker.west);
+
+    \end{tikzpicture}
+    \end{subfigure}
+    \caption{System block overview of the asynchronous inter-core communication architecture. The deterministic tracking pipeline on Core 0 transfers metrics safely to the utility processing loops on Core 1 using a lock-free Single-Producer Single-Consumer (SPSC) queue layout, shielding life-safety tasks from background telephony network handshakes.}
+    \label{fig:ieee_wide_flow}
+\end{figure*}
+
+
 \section{Nomenclature}
 \label{sec:nomenclature}
 % Configure a tight, compact list layout to match single-column width constraints
