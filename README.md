@@ -4,7 +4,7 @@ An industrial, life-safety-critical environmental monitoring system designed for
 
 ---
 
-## 🏢 System Safety Architecture
+## System Safety Architecture
 
 When cryogenic liquid nitrogen vaporizes, it expands by a factor of 700, immediately creating a severe asphyxiation risk by displacing breathable oxygen. This system uses a dedicated microcontroller to implement an automated safety loop that measures physical phenomena across two distinct zones:
 
@@ -20,7 +20,7 @@ To maintain strict compliance with life-safety standards, the system interfaces 
 
 ---
 
-## 🛠️ Codebase Structure
+## Codebase Structure
 
 The codebase is strictly modularized to maximize readability, maintain absolute zero dynamic memory allocation to prevent heap fragmentation, and maintain deterministic execution loops:
 
@@ -34,7 +34,7 @@ The codebase is strictly modularized to maximize readability, maintain absolute 
 
 ---
 
-## 💻 Compilation and Local Execution
+## Compilation and Local Execution
 
 ### Prerequisites
 *   CMake 3.15 or higher
@@ -58,7 +58,7 @@ cmake --build .
 
 ---
 
-## 🐍 Interactive Python CLI Companion Tool
+## Interactive Python CLI Companion Tool
 
 The repository provides a companion utility inside `tools/doc_generator.py` powered by **Typer** and **Rich**. This command-line interface tool allows facilities engineers to verify threshold compliance, output automated Markdown audit documentation ledgers, or interface via a physical USB Serial connection to pull live diagnostic hardware registries straight onto a laptop screen.
 
@@ -103,7 +103,7 @@ python tools/doc_generator.py read-telemetry --port /dev/ttyUSB0 --baudrate 9600
 ## 10. Open a telemetry stream connection link utilizing standard platform default variables
 python tools/doc_generator.py read-telemetry
 
-## 📈 Compliance Matrix Rules For Facility Auditors
+## Compliance Matrix Rules For Facility Auditors
 
 | Target Parameter | System Configuration Value | Compliance Evaluation Criteria |
 | :--- | :--- | :--- |
