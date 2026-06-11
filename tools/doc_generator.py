@@ -1,10 +1,19 @@
 """ Typer CLI Extension: UDP Anomaly Listener """
 import typer
+import os
+import re
+import time
+from pathlib import Path
+import typer
 import socket
+import serial
 from rich.console import Console
+from rich.table import Table
+from rich.live import Live
 
-app = typer.Typer(help="Interactive Documentation and Diagnostics Tool")
+app = typer.Typer(help="Interactive Documentation and Calibration Tool for Environment-Safety-Monitor")
 console = Console()
+
 
 @app.command()
 def listen_anomalies(port: int = 8005):
@@ -34,22 +43,6 @@ def listen_anomalies(port: int = 8005):
             console.print("[HARDWARE FAULT] " + payload, style="bold magenta")
             continue
 
-if __name__ == "__main__":
-    app()#!/usr/bin/env python3
-import os
-import re
-import time
-from pathlib import Path
-import typer
-import serial  # Native pyserial hardware connection library
-from rich.console import Console
-from rich.table import Table
-from rich.live import Live  # Allows smooth, zero-flicker terminal updates
-
-# Initialize the Typer CLI app and Rich terminal layout console
-app = typer.Typer(help="Interactive Documentation and Calibration Tool for Environment-Safety-Monitor")
-console = Console()
-
 def print_safety_warning():
     warning_text = """
     CRITICAL LIFE-SAFETY ALERT: NITROGEN HYPOXIA DETECTED
@@ -75,7 +68,6 @@ def parse_cpp_constants(header_path: Path) -> dict:
     if not header_path.exists():
         return constants
         
-    # Regex to match: constexpr [type] [NAME] = [VALUE];
     pattern = re.compile(r"constexpr+\w+(?:_t)?+(\w+)*=*([^;]+);")
     
     with open(header_path, "r", encoding="utf-8") as f:
@@ -83,7 +75,6 @@ def parse_cpp_constants(header_path: Path) -> dict:
             match = pattern.search(line)
             if match:
                 name, val = match.groups()
-                # Clean up trailing comments, whitespaces, or float literal type suffixes
                 val = val.split("//")[0].strip().replace("f", "")
                 constants[name] = val
     return constants
@@ -98,7 +89,6 @@ def verify_thresholds(
     """
     console.print("[bold blue]Scanning C++ Source Files for Live Environmental Thresholds...[/bold blue]\n")
     
-    # Extract live configuration data from codebase sources
     main_data = parse_cpp_constants(main_file)
     o2_data = parse_cpp_constants(o2_file)
     
@@ -185,32 +175,24 @@ def read_telemetry(
     console.print(f"[bold blue]Establishing connection to safety hardware on port {port}...[/bold blue]")
     
     try:
-        # Open the physical serial communication pipeline
         with serial.Serial(port, baudrate, timeout=timeout) as ser:
             console.print("[bold green]✓ Connected! Press Ctrl+C to disconnect and exit diagnostic mode.[/bold green]\n")
             
-            # Clear any stale data remaining in the hardware buffer
             ser.reset_input_buffer()
             
-            # Initialize the Rich Live rendering environment for smooth terminal text updates
             with Live(console=console, screen=False, refresh_per_second=4) as live:
                 while True:
-                    # Read an incoming line of text from the microcontroller
                     raw_line = ser.readline().decode('utf-8', errors='ignore').strip()
                     
                     if not raw_line:
                         continue
                     
-                    # Expecting a standardized comma-separated data frame from the microcontroller:
-                    # Format: $TELEMETRY,rawO2,smoothedO2,o2Volts,rawTemp,smoothedTemp,boardTemp,relayState
                     if raw_line.startswith("$TELEMETRY"):
                         fields = raw_line.split(",")
                         
-                        # Guard check against broken or fragmented serial frames
                         if len(fields) < 9:
                             continue
                             
-                        # Parse out data indices mapping to your live C++ variables
                         raw_o2        = fields[1]
                         smoothed_o2   = fields[2]
                         o2_volts      = fields[3]
@@ -219,10 +201,8 @@ def read_telemetry(
                         board_temp    = fields[6]
                         relay_raw     = int(fields[7])
                         
-                        # Translate the raw integer relay flag into readable system compliance text
                         relay_text = "[bold green]CLOSED (SAFE)[/bold green]" if relay_raw == 1 else "[bold red]OPEN (ALARM / TRIPPED)[/bold red]"
                         
-                        # Generate a clean diagnostic dashboard matrix table
                         table = Table(title="Live Hardware Telemetry Stream")
                         table.add_column("Sensor Metric / System Register", style="cyan")
                         table.add_column("Raw Value", style="magenta")
@@ -234,10 +214,9 @@ def read_telemetry(
                         table.add_row("MAX31856 Cold-Junction", f"{board_temp} °C", "N/A", "Freezer Exhaust Zone")
                         table.add_row("Edwards FireWorks Relay", "N/A", "N/A", relay_text)
                         
-                        # Push the table straight to the active console terminal frame
                         live.update(table)
                         
-                    time.sleep(0.05)  # Avoid pinning the host machine's CPU
+                    time.sleep(0.05)
                     
     except serial.SerialException as e:
         console.print(f"\n[bold red]Hardware Connection Failure:[/bold red] Could not access port {port}. Check connections. Error details: {e}")
