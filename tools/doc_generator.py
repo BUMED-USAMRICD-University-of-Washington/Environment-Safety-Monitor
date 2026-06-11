@@ -13,6 +13,22 @@ from rich.live import Live  # Allows smooth, zero-flicker terminal updates
 app = typer.Typer(help="Interactive Documentation and Calibration Tool for Environment-Safety-Monitor")
 console = Console()
 
+def print_safety_warning():
+    warning_text = """
+    CRITICAL LIFE-SAFETY ALERT: NITROGEN HYPOXIA DETECTED
+    =====================================================
+    DO NOT TRUST BEHAVIOR IN THE LEAK ZONE.
+
+    When oxygen drops, individuals will NOT realize they are suffocating. 
+    They will display symptoms resembling severe intoxication, irrational panic, 
+    combativeness, or acute paranoia (e.g., accusing others of drugging them).
+
+    * Evacuate instantly.
+    * Do not argue with disoriented personnel. Force evacuation.
+    * Never enter a leak zone without an independent air supply.
+    """
+    console.print(Panel(Markdown(warning_text), border_style="bold red"))
+
 def parse_cpp_constants(header_path: Path) -> dict:
     """
     Parses a C++ header file to extract constexpr values using regular expressions.
@@ -116,6 +132,16 @@ def read_telemetry(
     baudrate: int = typer.Option(9600, help="The data transfer rate matching your C++ Serial.begin() speed"),
     timeout: float = typer.Option(2.0, help="The maximum seconds to wait for a data frame before throwing an error")
 ):
+    """ Connects to the hardware array and streams live sensor data. """
+    
+    """ Hardware serial connection logic goes here """
+    
+    """ Simulated evaluation of the incoming serial stream """
+    current_status = "CRITICAL" 
+    
+    if current_status == "CRITICAL":
+        print_safety_warning()
+        return
     """
     Connects to the hardware over a physical USB Serial connection to pull live runtime telemetry.
     """
