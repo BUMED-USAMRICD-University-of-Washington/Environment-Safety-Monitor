@@ -3,6 +3,93 @@
 #include "max31856.h"
 #include "oxygen_sensor.h"
 #include "moving_average.h"
+#include "alarm_latch.h"
+#include "buzzer_driver.h" // Include your new non-blocking buzzer driver!
+
+constexpr float O2_CRITICAL_THRESHOLD   = 19.5f; 
+constexpr float TEMP_CRITICAL_THRESHOLD = 0.0f;  
+constexpr uint32_t SAMPLE_INTERVAL_MS   = 100;   
+
+// --- INSTANTIATE SAFETY PARAMETERS ---
+AlarmLatch o2AlarmDelay(3000);        // 3-second continuous window for oxygen
+AlarmLatch cryoAlarmDelay(0);         // 0-second window for liquid (instant trip)
+AlarmLatch hardwareFaultDelay(1000);  // 1-second window for broken wires
+
+// Instantiate the local buzzer controller
+BuzzerDriver localBuzzer;
+
+int main() {
+    initEdwardsInterface();
+    localBuzzer.init(); // Initialize the buzzer hardware line
+    wdt_enable(WDTO_2S);
+    
+    if (!initMax31856()) { /* handle boot fault */ }
+
+    uint32_t lastSampleTime = 0;
+
+    // THE RUNTIME LOOP
+    while (true) {
+        wdt_reset();
+        
+        // Replace with your native system clock tracking call: e.g., millis()
+        uint32_t currentTime = 0; 
+
+        // --- MAIN CRITICAL SAFETY LOOP ---
+        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
+            lastSampleTime = currentTime;
+
+            float rawO2 = 0.0f;
+            float rawTemp = 0.0f;
+
+            bool o2Healthy = readOxygenLevel(rawO2);
+            bool tempHealthy = readCryoTemperature(rawTemp);
+
+            // 1. Process Latched Alarms
+            bool currentHardwareBroken = (!o2Healthy || !tempHealthy);
+            bool hardwareFaultAlarmActive = hardwareFaultDelay.update(currentHardwareBroken, currentTime);
+
+            bool currentO2Violation = (o2Healthy && (rawO2 <= O2_CRITICAL_THRESHOLD));
+            bool currentTempViolation = (tempHealthy && (rawTemp <= TEMP_CRITICAL_THRESHOLD));
+
+            bool o2AlarmActive = o2AlarmDelay.update(currentO2Violation, currentTime);
+            bool cryoAlarmActive = cryoAlarmDelay.update(currentTempViolation, currentTime);
+
+            // 2. Evaluate Global System State
+            SafetyStatus compiledStatus = SafetyStatus::SAFE;
+            if (hardwareFaultAlarmActive) {
+                compiledStatus = SafetyStatus::SENSOR_FAULT;
+            } else if (o2AlarmActive || cryoAlarmActive) {
+                compiledStatus = SafetyStatus::CRITICAL;
+            }
+
+            // Report directly to the main Edwards Panel loop
+            driveEdwardsInterface(compiledStatus);
+
+            // 3. DRIVE INDEPENDENT LOCAL AUDIO PATTERNS
+            if (compiledStatus == SafetyStatus::CRITICAL || compiledStatus == SafetyStatus::SENSOR_FAULT) {
+                // EVACUATION OR SYSTEM FAULT ACTIVE: Lock local buzzer on 100% solid
+                // e.g., digitalWrite(PIN_LOCAL_BUZZER, HIGH);
+            } 
+            else if (o2AlarmDelay.isCountingDown() || hardwareFaultDelay.isCountingDown()) {
+                // ACTIVE COUNTDOWN UNDERWAY: Pulse the buzzer rapidly (every 150ms)
+                // This alerts anyone standing in the hallway that they have a brief grace period
+                // to investigate before the entire building evacuates.
+                localBuzzer.pulse(currentTime, 150);
+            } 
+            else {
+                // ALL CLEAR: Enforce physical silence
+                localBuzzer.turnOff();
+            }
+        }
+    }
+    return 0;
+}
+
+#include <iostream>
+#include <avr/wdt.h>
+#include "max31856.h"
+#include "oxygen_sensor.h"
+#include "moving_average.h"
 #include "alarm_latch.h" // Include your new validation module!
 
 constexpr float O2_CRITICAL_THRESHOLD   = 19.5f; 
