@@ -1,0 +1,11 @@
+% Add this inside your master.tex preamble file
+\usepackage{subfiles}
+\usepackage{listings}
+\usepackage{booktabs}
+
+\begin{document}
+
+% Pull the patch module into your book architecture cleanly
+\subfiles{src/emergency_subfile.tex}
+
+\end{document}
