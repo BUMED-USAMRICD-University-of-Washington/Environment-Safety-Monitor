@@ -42,3 +42,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE include)
 # Provide terminal user info upon compilation generation
 message(STATUS "Configured Safety-Critical Engine: [${PROJECT_NAME}]")
 message(STATUS "Strict C++ Optimization Stack Enabled (-O2 -Werror -fno-exceptions)")
+# Add this code snippet to the bottom of your root CMakeLists.txt file
+
+# Include test engine compilation targets if running test sandboxes locally
+option(BUILD_TESTING "Build the automated testing framework" OFF)
+
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
