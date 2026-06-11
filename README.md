@@ -9,11 +9,11 @@ An industrial, life-safety-critical environmental monitoring system designed for
 When cryogenic liquid nitrogen vaporizes, it expands by a factor of 700, immediately creating a severe asphyxiation risk by displacing breathable oxygen. This system uses a dedicated microcontroller to implement an automated safety loop that measures physical phenomena across two distinct zones:
 
 Use code with caution.[Breathing Zone: 1.5m] ----> O2 Deficiency Monitor (4-20mA Loop)|[Floor Line: 30cm]     ----> Cryo Temperature (Type-T Probe) & Fog Tracking Array|v[Microcontroller C++ Safety Loop]|+---> [Local Alarm] (Pulsed Buzzer / Amber LED Matrix)|+---> [Edwards FireWorks Loop via NC Dry Contact Relay]
-### 1. Two-Tier Vertical Sensor Layout
+### Two-Tier Vertical Sensor Layout
 *   **Floor Level (30 cm / 12 inches):** Cryogenic temperature probes (Type-T Thermocouples via MAX31856) are mounted on the legs or lower walls. Because boiling liquid nitrogen is freezing cold and forms a heavy fog, the floor level experiences the earliest drop in temperature.
 *   **Breathing Zone (1.5 meters / 5 feet):** Zirconium oxide Oxygen ($O_2$) Deficiency Monitors are mounted here to measure the actual air atmosphere pedestrians breathe. They are mapped to cross-check safe air content against an **OSHA Critical Limit of 19.5%**.
 
-### 2. Edwards FireWorks Relay Integration
+### Edwards FireWorks Relay Integration
 To maintain strict compliance with life-safety standards, the system interfaces with an **Edwards FireWorks Incident Management Platform** using an Addressable Monitor Module (such as an Edwards SIGA-CT1).
 *   **The Fail-Safe Loop Pattern:** The system utilizes the **Normally Closed (NC)** and **Common (COM)** terminals of an active-high hardware relay loop. 
 *   **The Hardware Rule:** During normal operations, the microcontroller continuously holds the GPIO output pin `HIGH` to energize the relay and maintain a complete, closed circuit. If the computer crashes, loses building power, or hits a sensor violation, its pin drops to zero, dropping power to the magnet. The circuit pops **OPEN** instantly, causing the Edwards panel to trigger an immediate building-wide Priority 1 Incident and evacuation response.
