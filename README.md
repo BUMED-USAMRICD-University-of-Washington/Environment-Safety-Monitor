@@ -44,7 +44,6 @@ The codebase is strictly modularized to maximize readability, maintain absolute 
 
 To execute a local sandbox optimization build testing the repository modules, execute the following commands inside your terminal workspace:
 
-```bash
 # Navigate to your local project root directory space
 cd Environment-Safety-Monitor
 
@@ -56,7 +55,6 @@ cmake ..
 
 # Run the project compiler to generate the target runtime binary executable
 cmake --build .
-```
 
 ---
 
@@ -68,16 +66,14 @@ The repository provides a companion utility inside `tools/doc_generator.py` powe
 
 Prior to executing CLI tasks, configure required dependency packages inside your tracking workspace:
 
-```bash
+
 # Install required modules natively via your package environment manager
 pip install -r requirements.txt
-```
 
 ### Complete CLI Tool Command List
 
 To discover, audit, or calibrate field hardware units deployed along facility corridors, utilize the following precise command sequences:
 
-```bash
 # 1. View the main interactive global application help guide menu
 python tools/doc_generator.py --help
 
@@ -107,9 +103,6 @@ python tools/doc_generator.py read-telemetry --port /dev/ttyUSB0 --baudrate 9600
 
 # 10. Open a telemetry stream connection link utilizing standard platform default variables
 python tools/doc_generator.py read-telemetry
-```
-
----
 
 ## 📈 Compliance Matrix Rules For Facility Auditors
 
@@ -133,3 +126,5 @@ cmake --build .
 
 
 https://open.spotify.com/track/133L5cGDGW4puIjxY5GPTk?si=6ae4e31939aa4a06
+
+```
