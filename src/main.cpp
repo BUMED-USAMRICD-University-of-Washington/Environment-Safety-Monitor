@@ -1,3 +1,48 @@
+#include <iostream>
+#include <avr/wdt.h>
+#include "max31856.h"
+#include "oxygen_sensor.h"
+#include "crash_logger.h" // Include your new non-volatile logger!
+
+int main() {
+    // 1. PHASE ONE: IMMEDIATE INTERFACE SAFETY SECURING
+    initEdwardsInterface(); // Keep relay closed to protect Fred Hutch while we check logs
+
+    // 2. PHASE TWO: ANALYZE SYSTEM REBOOT HISTORICS
+    ResetReason bootCondition = detectResetReason();
+    logResetToEEPROM(bootCondition);
+    
+    // Output diagnostics to your maintenance terminal console line
+    printCrashHistory();
+
+    // 3. PHASE THREE: CONFIGURE WATCHDOG TIMEOUTS
+    wdt_enable(WDTO_2S); // Enable a fresh 2-second watchdog countdown
+
+    // 4. PHASE FOUR: CHIP DRIVER CONFIGURATIONS
+    if (!initMax31856()) {
+        while (true) {
+            driveEdwardsInterface(SafetyStatus::SENSOR_FAULT); 
+            // We intentionally don't reset the watchdog here. 
+            // It will trigger a reboot, incrementing the log array.
+        }
+    }
+
+    uint32_t lastSampleTime = 0;
+
+    // 5. PHASE FIVE: THE MASTER RUNTIME LOOP
+    while (true) {
+        wdt_reset(); // Service the watchdog countdown continuously
+        
+        uint32_t currentTime = 0; // Replace with your hardware timer call (e.g., millis())
+
+        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
+            lastSampleTime = currentTime;
+            // ... Execute your fast-rate O2 and Temperature sampling loops ...
+        }
+    }
+    return 0;
+}
+
 #include "esp_task_wdt.h" // Include Espressif Task Watchdog library
 #include <iostream>
 
