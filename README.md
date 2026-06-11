@@ -121,3 +121,10 @@ python tools/doc_generator.py read-telemetry
 | **Microcontroller Safety Rate** | `100ms (10Hz Sweep)` | Guaranteed deterministic observation window ensuring rapid threat isolation loop sweeps. |
 | **Hardware Fail-Safe Method** | `Normally Closed (NC)` | Circuit loops drop mechanically if software freezes, wires snap, or power completely cuts out. |
 | **Watchdog Reboot Window** | `2000ms
+# 11. Compile your system repository with unit testing modes fully activated
+mkdir build && cd build
+cmake -DBUILD_TESTING=ON ..
+cmake --build .
+
+# 12. Run the compiled automated test suite to confirm algorithms match safety laws
+./tests/run_unit_tests
