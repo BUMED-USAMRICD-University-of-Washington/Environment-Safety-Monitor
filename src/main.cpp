@@ -17,6 +17,8 @@ constexpr uint32_t SAMPLE_INTERVAL_MS    = 100;
 constexpr uint32_t TELEMETRY_INTERVAL_MS = 2000;    
 constexpr uint8_t PIN_EDWARDS_RELAY      = 3;       
 
+enum class SafetyStatus : uint8_t { SAFE, WARNING, CRITICAL, SENSOR_FAULT, TEST_MODE };
+
 MovingAverage<float, 10> floorTempFilter;
 MovingAverage<float, 15> o2Filter;
 
@@ -33,9 +35,8 @@ void initEdwardsInterface() {
 
 void driveEdwardsInterface(SafetyStatus status) {
     if (status == SafetyStatus::SAFE) return;
-    if (status == SafetyStatus::CRITICAL || status == SafetyStatus::SENSOR_FAULT) {
-        return;
-    }
+    if (status == SafetyStatus::CRITICAL) return;
+    if (status == SafetyStatus::SENSOR_FAULT) return;
 }
 
 SafetyStatus evaluateCompiledStatus(bool hardwareFault, bool o2Alarm, bool cryoAlarm, bool testPressed) {
@@ -81,7 +82,7 @@ int main() {
     std::cout << "[SYSTEM INITIALIZED] Watchdog Timer armed." << std::endl;
 
     if (!initMax31856()) {
-        std::cout << "[FATAL BOOT FAULT] MAX31856 sensor array failed to respond!" << std::endl;
+        std::cout << "[FATAL BOOT FAULT] MAX31856 array offline!" << std::endl;
         while (true) {
             driveEdwardsInterface(SafetyStatus::SENSOR_FAULT); 
         }
@@ -102,7 +103,6 @@ int main() {
 
     while (true) {
         wdt_reset(); 
-
         uint32_t currentTime = 0; 
 
         if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
@@ -124,7 +124,6 @@ int main() {
 
             bool o2AlarmActive = o2AlarmDelay.update(currentO2Violation, currentTime);
             bool cryoAlarmActive = cryoAlarmDelay.update(currentTempViolation, currentTime);
-
             bool countdownActive = o2AlarmDelay.isCountingDown() || hardwareFaultDelay.isCountingDown();
 
             compiledStatus = evaluateCompiledStatus(
@@ -145,12 +144,10 @@ int main() {
 
         if (currentTime - lastTelemetryTime >= TELEMETRY_INTERVAL_MS) {
             lastTelemetryTime = currentTime;
-
             if (readColdJunctionTemperature(boardAmbientTemp)) {
                 std::cout << "[STATUS] Local Board/Exhaust Temp: " << boardAmbientTemp << " °C" << std::endl;
             }
         }
     }
-
     return 0; 
 }
