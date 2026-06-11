@@ -1,3 +1,13 @@
+% Add this inside your master.tex preamble file
+\usepackage{subfiles}
+\usepackage{listings}
+\usepackage{booktabs}
+
+\begin{document}
+
+% Pull the patch module into your book architecture cleanly
+\subfiles{src/emergency_subfile.tex}
+
 \section{Hardware Interface Loop Metrics}
 To guarantee system survival under electrical fault conditions, the physical wiring bridge between the monitoring server and the Advanced Axis AX panel utilizes a supervised three-state loop interface via the 55000-820ADV module. The hardware metrics, calculated line impedances, and expected system state transitions are summarized in Table~\ref{tab:ieee_loop_specs}.
 
@@ -24,3 +34,5 @@ To guarantee system survival under electrical fault conditions, the physical wir
         \bottomrule
     \end{tabular}
 \end{table}
+
+\end{document}
