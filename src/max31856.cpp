@@ -1,3 +1,36 @@
+// Add this implementation to your src/max31856.cpp file
+#include "max31856.h"
+
+bool initMax31856() {
+    
+    // 1. Configure CR0 (Continuous Conversion Mode & Filters)
+    // Writing address = Register Address OR'd with 0x80 (Write Bit)
+    setChipSelect(PIN_SPI_CS, false);
+    spiTransferByte(MAX31856_REG_CR0 | 0x80); 
+    spiTransferByte(CR0_INIT_VALUE);
+    setChipSelect(PIN_SPI_CS, true);
+
+    // 2. Configure CR1 (Set Thermocouple Type to T)
+    setChipSelect(PIN_SPI_CS, false);
+    spiTransferByte(MAX31856_REG_CR1 | 0x80); 
+    spiTransferByte(CR1_INIT_VALUE);
+    setChipSelect(PIN_SPI_CS, true);
+
+    // 3. Optional: Read-back Verification Loop
+    // To ensure the chip actually saved your parameters and didn't suffer an SPI glitch
+    setChipSelect(PIN_SPI_CS, false);
+    spiTransferByte(MAX31856_REG_CR1); // Read address 0x01
+    uint8_t verifyCR1 = spiTransferByte(0xFF);
+    setChipSelect(PIN_SPI_CS, true);
+
+    // Check if the read back value matches what we wrote (Type-T configuration)
+    if (verifyCR1 != CR1_INIT_VALUE) {
+        return false; // Hardware initialization failed
+    }
+
+    return true; // Chip successfully locked into Type-T mode
+}
+
 #include "max31856.h"
 
 bool readCryoTemperature(float& temperatureCelsius) {
