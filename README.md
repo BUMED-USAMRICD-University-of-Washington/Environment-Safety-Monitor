@@ -66,7 +66,7 @@ The repository provides a companion utility inside `tools/doc_generator.py` powe
 
 Prior to executing CLI tasks, configure required dependency packages inside your tracking workspace:
 
-## Install required modules natively via your package environment manager
+### Install required modules natively via your package environment manager
 pip install -r requirements.txt
 
 ### Complete CLI Tool Command List
