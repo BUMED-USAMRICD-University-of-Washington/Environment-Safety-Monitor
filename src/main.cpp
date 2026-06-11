@@ -2,6 +2,81 @@
 #include <avr/wdt.h>
 #include "max31856.h"
 #include "oxygen_sensor.h"
+#include "moving_average.h"
+#include "alarm_latch.h" // Include your new validation module!
+
+constexpr float O2_CRITICAL_THRESHOLD   = 19.5f; 
+constexpr float TEMP_CRITICAL_THRESHOLD = 0.0f;  
+constexpr uint32_t SAMPLE_INTERVAL_MS   = 100;   
+
+// --- INSTANTIATE ALARM TIMING CONFIGURATIONS ---
+// O2 Latch: Requires 3000ms (3 seconds) of continuous low oxygen to trip the Edwards loop
+AlarmLatch o2AlarmDelay(3000);
+
+// Cryo Latch: Requires 0ms delay. A liquid spill is an instant evacuation requirement.
+AlarmLatch cryoAlarmDelay(0);
+
+// Sensor Fault Latch: Requires 1000ms (1 second) of broken wire reads before flagging a hardware fault
+AlarmLatch hardwareFaultDelay(1000);
+
+int main() {
+    initEdwardsInterface();
+    wdt_enable(WDTO_2S);
+    if (!initMax31856()) { /* handle boot halt */ }
+
+    uint32_t lastSampleTime = 0;
+
+    while (true) {
+        wdt_reset();
+        
+        // Replace with your native microcontroller system timer call: e.g., millis()
+        uint32_t currentTime = 0; 
+
+        // --- MAIN CRITICAL SAFETY LOOP ---
+        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
+            lastSampleTime = currentTime;
+
+            float rawO2 = 0.0f;
+            float rawTemp = 0.0f;
+
+            bool o2Healthy = readOxygenLevel(rawO2);
+            bool tempHealthy = readCryoTemperature(rawTemp);
+
+            // Step 1: Check for broken wires / hardware faults
+            bool currentHardwareBroken = (!o2Healthy || !tempHealthy);
+            
+            // Pass the state into the 1-second fault latch to absorb transient signal errors
+            bool hardwareFaultAlarmActive = hardwareFaultDelay.update(currentHardwareBroken, currentTime);
+
+            // Step 2: Evaluate actual environmental hazards
+            bool currentO2Violation = (o2Healthy && (rawO2 <= O2_CRITICAL_THRESHOLD));
+            bool currentTempViolation = (tempHealthy && (rawTemp <= TEMP_CRITICAL_THRESHOLD));
+
+            // Run the states through their independent timing parameters
+            bool o2AlarmActive = o2AlarmDelay.update(currentO2Violation, currentTime);
+            bool cryoAlarmActive = cryoAlarmDelay.update(currentTempViolation, currentTime);
+
+            // Step 3: Combine verified latched flags into a single master output driver
+            SafetyStatus compiledStatus = SafetyStatus::SAFE;
+
+            if (hardwareFaultAlarmActive) {
+                compiledStatus = SafetyStatus::SENSOR_FAULT;
+            } 
+            else if (o2AlarmActive || cryoAlarmActive) {
+                compiledStatus = SafetyStatus::CRITICAL;
+            }
+
+            // Step 4: Drive your output relay to the Edwards FireWorks interface
+            driveEdwardsInterface(compiledStatus);
+        }
+    }
+    return 0;
+}
+
+#include <iostream>
+#include <avr/wdt.h>
+#include "max31856.h"
+#include "oxygen_sensor.h"
 #include "crash_logger.h" // Include your new non-volatile logger!
 
 int main() {
