@@ -1,4 +1,41 @@
-#!/usr/bin/env python3
+""" Typer CLI Extension: UDP Anomaly Listener """
+import typer
+import socket
+from rich.console import Console
+
+app = typer.Typer(help="Interactive Documentation and Diagnostics Tool")
+console = Console()
+
+@app.command()
+def listen_anomalies(port: int = 8005):
+    """ Binds to the local UDP socket to listen for NVIDIA GPU broadcasts """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("0.0.0.0", port))
+
+    console.print("[SYSTEM] Listening for asynchronous UDP anomalies...", style="bold cyan")
+
+    while True:
+        data, addr = sock.recvfrom(1024)
+        
+        if not data:
+            continue
+
+        payload = data.decode("utf-8")
+        
+        if "CRITICAL" in payload:
+            console.print("[EVACUATE] " + payload, style="bold red")
+            continue
+            
+        if "WARNING" in payload:
+            console.print("[WARNING] " + payload, style="bold yellow")
+            continue
+            
+        if "FAULT" in payload:
+            console.print("[HARDWARE FAULT] " + payload, style="bold magenta")
+            continue
+
+if __name__ == "__main__":
+    app()#!/usr/bin/env python3
 import os
 import re
 import time
