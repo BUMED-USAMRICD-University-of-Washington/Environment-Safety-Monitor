@@ -135,4 +135,57 @@ To guarantee system survival under electrical fault conditions, the physical wir
     \end{tabular}
 \end{table}
 
+% Initialize the official IEEE Appendix framework environment
+\appendices
+
+\section{ADS1115 I2C ADC Register Configuration}
+\label{app:ads1115_config}
+To preserve the runtime mathematical scaling integrity of the 16-bit external supervisor loop described in Section~III, the on-board ADS1115 analog-to-digital converter must be initialized using a precise bitmask payload. 
+
+The critical settings are compiled into the 16-bit \textit{Config Register} (Address Pointer: \texttt{0x01}). This register is broken down into functional bit segments as summarized in Table~\ref{tab:ads1115_bits}.
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+    \caption{ADS1115 Config Register Bit Mapping For Loop Supervision}
+    \label{tab:ads1115_bits}
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{c p{1.6cm} c p{2.8cm}}
+        \toprule
+        \textbf{Bit Field} & \textbf{Field Name} & \textbf{Value} & \textbf{Functional Operation} \\
+        \midrule
+        15 & OS (Start) & \texttt{1} & Operational single-conversion trigger execution \\
+        14:12 & MUX[2:0] & \texttt{100} & Single-ended configuration tracking on channel AIN0 to GND \\
+        11:9 & PGA[2:0] & \texttt{001} & Full-Scale Range (FSR) set to $\pm4.096\,\text{V}$ ($1\,\text{LSB} = 125\,\mu\text{V}$) \\
+        8 & MODE & \texttt{1} & Power-saving single-shot non-continuous conversion cycle \\
+        7:5 & DR[2:0] & \texttt{100} & Data rate profiling set to 128 samples per second (SPS) \\
+        4 & COMP\_MODE & \texttt{0} & Traditional comparator output format tracking (Default) \\
+        3 & COMP\_POL & \texttt{0} & Active low comparator threshold polarity latch (Default) \\
+        2 & COMP\_LAT & \texttt{0} & Non-latching automatic digital threshold mode (Default) \\
+        1:0 & COMP\_QUE & \texttt{11} & Deactivate hardware comparator; alert pin high impedance \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Hexadecimal Byte-Streaming Payload}
+Combining these precise bit arrays results in a full 16-bit binary payload string of \texttt{1100001110000011}. Translating this binary array down into two concise 8-bit hex tracking blocks yields the explicit engineering payload bytes:
+
+\begin{equation}
+    \text{Register MSB} = \texttt{0xC3}, \quad \text{Register LSB} = \texttt{0x83}
+\end{equation}
+
+During the system startup phase executed on the master microcontroller, these twin data frames must be piped across the I2C physical lines directly following the pointer address byte \texttt{0x01} to lock the conversion scales into high-resolution operational memory before tracking begins.
+
+\subsection{Voltage Calibration Safeguard Mapping}
+Because the loop pull-up voltage ($V_{cc}$) is anchored to a standard $3.30\,\text{V}$ rail, and the PGA is intentionally configured to monitor thresholds up to $4.096\,\text{V}$ under this profile, the raw 16-bit integer conversions will never reach hardware clipping limits. 
+
+The maximum digital step count expected under non-fault operational loops matches a voltage input of $3.30\,\text{V}$, which translates precisely to:
+
+\begin{equation}
+    \text{Steps}_{\text{max}} = \left\lfloor \frac{3.30\,\text{V}}{4.096\,\text{V}} \times 32767 \right\rfloor = 26399
+\end{equation}
+
+Any I2C reading parsing past step count $26399$ is immediately intercepted by the `I2CADCSupervisionEngine` and flagged as an electrical system voltage surge anomaly.
+
+
 \end{document}
