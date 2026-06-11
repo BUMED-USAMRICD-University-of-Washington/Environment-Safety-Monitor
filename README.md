@@ -44,16 +44,16 @@ The codebase is strictly modularized to maximize readability, maintain absolute 
 
 To execute a local sandbox optimization build testing the repository modules, execute the following commands inside your terminal workspace:
 
-# Navigate to your local project root directory space
+### Navigate to your local project root directory space
 cd Environment-Safety-Monitor
 
-# Create a clean, temporary build sandboxing directory
+### Create a clean, temporary build sandboxing directory
 mkdir build && cd build
 
-# Generate native platform build makefiles with strict compilation profiles
+### Generate native platform build makefiles with strict compilation profiles
 cmake ..
 
-# Run the project compiler to generate the target runtime binary executable
+### Run the project compiler to generate the target runtime binary executable
 cmake --build .
 
 ---
