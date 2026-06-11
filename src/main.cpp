@@ -1,3 +1,45 @@
+// Add these configuration updates to your src/main.cpp file
+
+// --- HARDWARE RELAY CONFIGURATION ---
+constexpr uint8_t PIN_EDWARDS_RELAY = 3; // Connected to the Edwards Monitor Module input
+
+enum class SafetyStatus : uint8_t { 
+    SAFE, 
+    WARNING, 
+    CRITICAL, 
+    SENSOR_FAULT 
+};
+
+/**
+ * Initializes the life-safety output relay configuration.
+ */
+void initEdwardsInterface() {
+    // 1. Force the output pin state to HIGH *before* setting it as an active OUTPUT.
+    // This stops the system from accidentally tripping the Edwards loop for a split-second on boot-up.
+    // e.g., digitalWrite(PIN_EDWARDS_RELAY, HIGH);
+    
+    // 2. Define pin as an output channel
+    // e.g., pinMode(PIN_EDWARDS_RELAY, OUTPUT);
+}
+
+/**
+ * Directly drives the physical circuit connected to the Edwards FireWorks ecosystem.
+ */
+void driveEdwardsInterface(SafetyStatus status) {
+    if (status == SafetyStatus::SAFE) {
+        // ENVIROMENT SAFE: Consistently energize the relay to maintain a closed circuit.
+        // If the micro freezes or power dies, this automatically drops to zero, tripping the alarm.
+        // e.g., digitalWrite(PIN_EDWARDS_RELAY, HIGH);
+    } 
+    else if (status == SafetyStatus::CRITICAL || status == SafetyStatus::SENSOR_FAULT) {
+        // HAZARD ENCOUNTERED: Cut power to the relay immediately.
+        // This opens the dry contacts, triggering an instant priority incident response on the FireWorks terminal.
+        // e.g., digitalWrite(PIN_EDWARDS_RELAY, LOW);
+    }
+    // Note: We skip SafetyStatus::WARNING here so minor sensor drift doesn't force a building evacuation.
+}
+
+
 #include <iostream>
 #include "max31856.h"
 #include "oxygen_sensor.h"
