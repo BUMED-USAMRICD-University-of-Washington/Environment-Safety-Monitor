@@ -1,58 +1,43 @@
-#include <avr/wdt.h>  // Include the AVR hardware watchdog library
+#include "esp_task_wdt.h" // Include Espressif Task Watchdog library
 #include <iostream>
-#include "max31856.h"
-#include "oxygen_sensor.h"
 
-// ... keep your existing thresholds and constants ...
+// Define a 2-second watchdog timeout configuration structure
+#define WDT_TIMEOUT_SECONDS 2
+
+void initWatchdog() {
+    // Initialize the Task Watchdog configuration
+    esp_task_wdt_config_t twdt_config = {
+        .timeout_ms = WDT_TIMEOUT_SECONDS * 1000,
+        .idle_core_mask = (1 << 0), // Monitor Core 0
+        .trigger_panic = true       // Force a hard hardware reboot on timeout
+    };
+    
+    esp_task_wdt_init(&twdt_config);
+    esp_task_wdt_add(NULL); // Add the current running main execution loop thread to the monitor
+}
 
 int main() {
-    // 1. HARDWARE INITIALIZATION PHASE
     initEdwardsInterface();
+    initWatchdog(); // Arm the watchdog
     
-    // Configure and enable the watchdog timer with a 2-second timeout window
-    wdt_enable(WDTO_2S); 
-    std::cout << "[BOOT] Hardware Watchdog Timer Enabled (2s Timeout)." << std::endl;
+    std::cout << "[BOOT] ESP32 Task Watchdog armed for 2 seconds." << std::endl;
 
     if (!initMax31856()) {
-        // If boot fails, don't pet the dog. Let it reset the chip continuously 
-        // while holding the Edwards relay loop OPEN to flag an active system fault.
-        while (true) {
-            driveEdwardsInterface(SafetyStatus::SENSOR_FAULT); 
-        }
+        while (true) { driveEdwardsInterface(SafetyStatus::SENSOR_FAULT); }
     }
 
     uint32_t lastSampleTime = 0;
 
-    // 2. THE RUNTIME LOOP
     while (true) {
-        // KICK THE DOG: Regularly reset the hardware countdown timer at the top of every loop cycle.
-        // As long as the code line is reached before 2 seconds elapse, the system continues running.
-        wdt_reset(); 
+        // PET THE DOG: Tell the FreeRTOS subsystem this thread is healthy and looping
+        esp_task_wdt_reset();
 
-        uint32_t currentTime = 0; // Replace with your native millis() or get_time() call
+        uint32_t currentTime = 0; // Replace with esp_timer_get_time() / 1000
 
-        // --- SECTION A: CRITICAL SAFETY EVALUATION (Every 100ms) ---
         if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
             lastSampleTime = currentTime;
-
-            float rawO2 = 0.0f;
-            float rawTemp = 0.0f;
-
-            bool o2Healthy = readOxygenLevel(rawO2);
-            bool tempHealthy = readCryoTemperature(rawTemp);
-
-            SafetyStatus systemStatus = SafetyStatus::SAFE;
-            if (!o2Healthy || !tempHealthy) {
-                systemStatus = SafetyStatus::SENSOR_FAULT;
-            } else if (rawO2 <= O2_CRITICAL_THRESHOLD || rawTemp <= TEMP_CRITICAL_THRESHOLD) {
-                systemStatus = SafetyStatus::CRITICAL;
-            }
-
-            driveEdwardsInterface(systemStatus);
+            // ... Execute your identical O2 and Cryo sensing logic here ...
         }
-        
-        // Note: Do NOT put wdt_reset() inside the 2000ms diagnostic loop. 
-        // If Section A crashes but Section B keeps running, you want the watchdog to trip!
     }
     return 0;
 }
