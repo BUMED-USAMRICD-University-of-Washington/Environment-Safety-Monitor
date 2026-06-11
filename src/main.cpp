@@ -12,6 +12,9 @@ include "led_driver.h"
 include "telemetry_types.h"
 include "spsc_ring_buffer.h"
 
+include <iostream>
+include "i2c_adc_supervision.h"
+include "telemetry_types.h"
 constexpr float O2_CRITICAL_THRESHOLD    = 19.5f;   
 constexpr float TEMP_CRITICAL_THRESHOLD  = 0.0f;    
 constexpr uint32_t SAMPLE_INTERVAL_MS    = 100;     
@@ -29,6 +32,42 @@ TestButton inspectorButton(PIN_TEST_BUTTON, TEST_DEBOUNCE_MS);
 LedDriver statusVisuals;
 
 LockFreeQueue<AlarmTelemetryPacket, 64> telemetry_queue;
+
+// Simulated example function representing your I2C communication library driver
+int16_t read_external_i2c_adc_register() {
+    // Mock Data Step: 21573 out of 32767 steps.
+    // 21573 * (4.096 / 32767) = 2.696V
+    // 10000 * (2.696 / (3.3 - 2.696)) = 44635 Ohms (Alarm State Trip Window)
+    return 21573; 
+}
+
+void process_external_i2c_loop() {
+    using namespace SafetySystem;
+
+    // 1. Fetch raw 16-bit data chunks over the physical I2C lines
+    int16_t raw_i2c_bits = read_external_i2c_adc_register();
+
+    // 2. Compute precision voltage mapping
+    double line_voltage = I2CADCSupervisionEngine::convert_i2c_raw_to_voltage(raw_i2c_bits);
+
+    // 3. Extract exact circuit impedance metrics
+    double circuit_ohms = I2CADCSupervisionEngine::calculate_loop_resistance(line_voltage);
+
+    // 4. Send metrics to your logging and validation pipelines
+    std::cout << "[I2C ADC LOG] Raw Step: " << raw_i2c_bits 
+              << " | Loop Voltage: " << line_voltage << "V"
+              << " | Loop Impedance: " << circuit_ohms << " Ohms\n";
+
+    if (circuit_ohms == OPEN_CIRCUIT_MARKER) {
+        std::cerr << "[ALERT] Open Circuit Fault Detected via 16-bit I2C supervisor!\n";
+    }
+}
+
+int main() {
+    std::cout << "Initializing 16-Bit External I2C Loop Diagnostics Engine...\n";
+    process_external_i2c_loop();
+    return 0;
+}
 
 void initEdwardsInterface() {
 }
