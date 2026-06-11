@@ -1,3 +1,13 @@
+// Add this public method to your existing class in include/alarm_latch.h
+
+/**
+ * Checks if the sensor is currently tracking an active violation but is still within its grace period.
+ * @return bool True if a countdown is underway; False otherwise.
+ */
+bool isCountingDown() const {
+    return (m_isViolated && !m_isLatched);
+}
+
 #ifndef ALARM_LATCH_H
 #define ALARM_LATCH_H
 
