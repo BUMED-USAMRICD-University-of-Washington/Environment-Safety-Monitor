@@ -1,3 +1,28 @@
+// Update your src/main.cpp file initialization routine
+int main() {
+    // 1. Initialize your physical GPIO pins and SPI clock speeds first
+    // native_spi_init_hooks();
+
+    // 2. Flash configure the MAX31856 chip to Type-T mode
+    bool chipReady = initMax31856();
+    
+    if (!chipReady) {
+        // CRITICAL BOOT FAULT: The hardware didn't respond or reject configuration.
+        // Instantly trip the safety relay out to the building management system (BMS) 
+        // because we cannot safely monitor the environment.
+        while (true) {
+            triggerAlarms(SafetyStatus::SENSOR_FAULT); 
+        }
+    }
+
+    // 3. Enter infinite safety loop if initialization succeeds
+    uint32_t lastSampleTime = 0;
+    while (true) {
+        // Continual non-blocking execution code runs here...
+    }
+    return 0;
+}
+
 #include <cstdint>
 #include "max31856.h" // Include your new chip helper!
 
