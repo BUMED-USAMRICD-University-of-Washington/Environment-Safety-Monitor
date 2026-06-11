@@ -1,27 +1,30 @@
-#pragma once
-#include <stdint.h>
-#include <stddef.h>
+pragma once
+include <stdint.h>
+include <stddef.h>
 
 class CRC32Engine {
 public:
     // Computes the CRC32 checksum across a raw byte buffer segment
     static uint32_t calculate(const uint8_t* data, size_t length) {
-        uint32_t crc = 0xFFFFFFFF; // Initialize tracking register to all ones
+        
+        // Guard clauses to instantly trap invalid memory or empty payloads
+        if (!data) return 0;
+        if (length == 0) return 0;
+
+        uint32_t crc = 0xFFFFFFFF; 
         
         for (size_t i = 0; i < length; ++i) {
             uint8_t table_index = static_cast<uint8_t>((crc ^ data[i]) & 0xFF);
             crc = (crc >> 8) ^ CRC32_TABLE[table_index];
         }
         
-        return crc ^ 0xFFFFFFFF; // Invert output bits to conform to IEEE 802.3 standard
+        return crc ^ 0xFFFFFFFF; 
     }
 
 private:
-    // Pre-calculated polynomial lookup table (Polynomial: 0xEDB88320)
     static const uint32_t CRC32_TABLE[256];
 };
 
-// Inline declaration keeps compilation simple and fast
 inline const uint32_t CRC32Engine::CRC32_TABLE[256] = {
     0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
     0x0EDB8832, 0x79DCB8A4, 0xE0D5E91E, 0x97DCD988, 0x09B64C2B, 0x7EB17CBD, 0xE7B82D07, 0x90BF1D91,
