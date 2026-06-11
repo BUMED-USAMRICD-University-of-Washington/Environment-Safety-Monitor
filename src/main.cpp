@@ -39,6 +39,15 @@ void driveEdwardsInterface(SafetyStatus status) {
     if (status == SafetyStatus::SENSOR_FAULT) return;
 }
 
+void transmitEdwardsWarning(SafetyStatus status) {
+    if (status != SafetyStatus::CRITICAL) return;
+
+    std::cout << "\n[EDWARDS RELAY TRIPPED] PRIORITY 1 EVACUATION ALARM" << std::endl;
+    std::cout << "[MEDICAL WARNING] Hypoxia-Induced Anosognosia Detected." << std::endl;
+    std::cout << "Victims will not realize they are suffocating. Expect severe intoxication, paranoia, and combativeness." << std::endl;
+    std::cout << "Force evacuation immediately. Do not attempt rescue without independent air supply." << std::endl;
+}
+
 SafetyStatus evaluateCompiledStatus(bool hardwareFault, bool o2Alarm, bool cryoAlarm, bool testPressed) {
     if (hardwareFault) return SafetyStatus::SENSOR_FAULT;
     if (o2Alarm || cryoAlarm) return SafetyStatus::CRITICAL;
@@ -69,6 +78,19 @@ void updateAudioAlerts(SafetyStatus status, uint8_t visualCode, uint32_t current
 }
 
 int main() {
+    SafetyStatus compiledStatus = SafetyStatus::CRITICAL; 
+
+    while (true) {
+        
+        """ Sensor polling and filtering algorithms run here """
+        
+        if (compiledStatus == SafetyStatus::CRITICAL) {
+            transmitEdwardsWarning(compiledStatus);
+            driveEdwardsInterface(compiledStatus);
+        }
+        
+    }
+    
     initEdwardsInterface();
     localBuzzer.init();
     inspectorButton.init();
