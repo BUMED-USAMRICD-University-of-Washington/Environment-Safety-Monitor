@@ -1,3 +1,100 @@
+// Add this implementation layer to your existing src/main.cpp file
+#include <iostream>
+#include <avr/wdt.h>
+#include "max31856.h"
+#include "oxygen_sensor.h"
+#include "moving_average.h"
+#include "alarm_latch.h"
+#include "buzzer_driver.h"
+#include "test_button.h"
+#include "led_driver.h" // Include your new visual indicator driver!
+
+// Instantiate the visual display engine
+LedDriver statusVisuals;
+
+int main() {
+    // 1. Initialise physical pin allocations
+    initEdwardsInterface();
+    localBuzzer.init();
+    inspectorButton.init();
+    statusVisuals.init(); // Configure your Green, Amber, and Red pins
+
+    // ... run your normal crash logging and MAX31856 configurations ...
+    wdt_enable(WDTO_2S);
+
+    uint32_t lastSampleTime = 0;
+
+    // THE MASTER ENVIRONMENT RUNTIME
+    while (true) {
+        wdt_reset(); // Keep watchdog count satisfied
+        
+        uint32_t currentTime = 0; // Replace with native millis() or get_time()
+
+        // --- SECTION A: SAFETY LOGIC WINDOW (Runs every 100ms) ---
+        if (currentTime - lastSampleTime >= SAMPLE_INTERVAL_MS) {
+            lastSampleTime = currentTime;
+
+            float rawO2 = 0.0f;
+            float rawTemp = 0.0f;
+
+            bool o2Healthy = readOxygenLevel(rawO2);
+            bool tempHealthy = readCryoTemperature(rawTemp);
+
+            bool currentHardwareBroken = (!o2Healthy || !tempHealthy);
+            bool hardwareFaultAlarmActive = hardwareFaultDelay.update(currentHardwareBroken, currentTime);
+
+            bool currentO2Violation = (o2Healthy && (rawO2 <= O2_CRITICAL_THRESHOLD));
+            bool currentTempViolation = (tempHealthy && (rawTemp <= TEMP_CRITICAL_THRESHOLD));
+
+            bool o2AlarmActive = o2AlarmDelay.update(currentO2Violation, currentTime);
+            bool cryoAlarmActive = cryoAlarmDelay.update(currentTempViolation, currentTime);
+
+            SafetyStatus compiledStatus = SafetyStatus::SAFE;
+            uint8_t visualStatusCode = 0; // 0 = Safe, 1 = Warning, 2 = Critical, 3 = Fault
+
+            if (hardwareFaultAlarmActive) {
+                compiledStatus = SafetyStatus::SENSOR_FAULT;
+                visualStatusCode = 3;
+            } 
+            else if (o2AlarmActive || cryoAlarmActive) {
+                compiledStatus = SafetyStatus::CRITICAL;
+                visualStatusCode = 2;
+            } 
+            else if (inspectorButton.isPressed(currentTime)) {
+                compiledStatus = SafetyStatus::TEST_MODE;
+                visualStatusCode = 2; // Test mode mirrors critical flashing red indicators
+            }
+            else if (o2AlarmDelay.isCountingDown() || hardwareFaultDelay.isCountingDown()) {
+                // If a sensor is violating its threshold but has not latched into an alarm yet,
+                // keep the system compile status safe but upgrade visual metrics to warning status code 1.
+                compiledStatus = SafetyStatus::SAFE;
+                visualStatusCode = 1; 
+            }
+
+            // Route execution outputs to physical hardware layers
+            driveEdwardsInterface(compiledStatus);
+            
+            // Drive the LED array using the updated visual code metrics
+            statusVisuals.updateDisplay(visualStatusCode, currentTime);
+
+            // Audio management patterns
+            if (compiledStatus == SafetyStatus::TEST_MODE) {
+                localBuzzer.pulse(currentTime, 100); 
+            } 
+            else if (compiledStatus == SafetyStatus::CRITICAL || compiledStatus == SafetyStatus::SENSOR_FAULT) {
+                // e.g., digitalWrite(PIN_LOCAL_BUZZER, HIGH);
+            } 
+            else if (visualStatusCode == 1) { // Pre-alarm validation window
+                localBuzzer.pulse(currentTime, 150);
+            } 
+            else {
+                localBuzzer.turnOff();
+            }
+        }
+    }
+    return 0;
+}
+
 #include <iostream>
 #include <cstdint>
 #include <avr/wdt.h>  // AVR Hardware Watchdog Library
