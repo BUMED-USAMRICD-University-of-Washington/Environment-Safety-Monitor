@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(EnvironmentSafetyMonitor VERSION 1.0.0 LANGUAGES CXX)
+find_package(CURL REQUIRED)
+target_link_libraries(EnvironmentMonitor PRIVATE CURL::libcurl)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
