@@ -193,7 +193,21 @@ void Core1_TelemetryLoop(void * pvParameters) {
                   << "% | Temp: " << received_packet.floor_temp 
                   << "C | Code: " << static_cast<int>(received_packet.alarm_state) 
                   << "\n";
-                  
+// Inside your utility_core_track / Core1_TelemetryLoop execution block:
+
+// 1. Initialize the bridge targeting your centralized Python server
+SafetySystem::UnivacAegisBridge aegis_link("http://api.revolutionary.technology:8000/univac-aegis/ingest", "Env-Monitor-Hutch-01");
+
+// 2. Inside your Core 1 while() loop, when pulling from the SPSC buffer:
+if (incident_detected) {
+    // Dispatch immediately over the network. 
+    // Because it is async, Core 1 instantly returns to polling the buffer.
+    aegis_link.DispatchTelemetryAsync(
+        current_alarm_state_bitmask, 
+        current_o2_percentage, 
+        current_temp_celsius
+    );
+}                  
         if (received_packet.alarm_state > 0) {
         }
     }
